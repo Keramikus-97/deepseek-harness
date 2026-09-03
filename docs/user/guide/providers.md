@@ -18,6 +18,46 @@ Choose **Add provider**, select a provider such as Anthropic or OpenAI, enter it
 
 Providers with native authentication need their native credentials instead. Bedrock, Vertex, Azure, and Codex use AWS credentials and a region, an ADC project, an `api-version`, and OAuth respectively; filling only the API-key field does not configure them.
 
+## Use a local OpenAI-compatible server
+
+Install the official opt-in bundle into a shipped profile, then start that profile. The first command initializes `headless`; the bundle leaves every profile unchanged until you add it.
+
+```sh
+dsh --profile headless --help
+dsh plugin --profile headless add @deepseek-ai/dsh-local-openai
+export LOCAL_OPENAI_API_KEY=not-needed
+dsh --profile headless "Say hello."
+```
+
+Start an OpenAI-compatible server before the final command. For example, with [vLLM](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html), install a model and run `vllm serve Qwen/Qwen3-8B --api-key not-needed`; it listens on the bundle default `http://127.0.0.1:8000/v1`. `LOCAL_OPENAI_API_KEY=not-needed` is a non-secret placeholder for servers that do not check Bearer authentication; use the server's real key instead when it does.
+
+The bundle supplies the named `local-openai` provider, `api: openai-completions`, one model, and an `agent-default-model` selection for that route. Change the URL or model in the profile's `cordis.patch.yml`; a patch replaces the entire provider configuration, so retain the credential reference, API, and models:
+
+```yaml
+- id: llm-pi-ai
+  config:
+    providers:
+      local-openai:
+        displayName: Local OpenAI-compatible server
+        apiKeyEnv: LOCAL_OPENAI_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:8000/v1
+        models:
+          - id: your-local-model
+
+- id: agent-default-model
+  config:
+    provider: local-openai
+    model: your-local-model
+```
+
+A local server avoids a hosted model bill, not all cost: download the model first, and your hardware and electricity provide the compute. `web_search` remains part of the base bundle and still makes a separate DeepSeek request that requires `DEEPSEEK_API_KEY`. A local-only profile can disable both web tools with this profile patch:
+
+```yaml
+- id: tool-web
+  disabled: true
+```
+
 ## Add a custom provider
 
 Choose **Add a custom provider** for a company gateway, self-hosted server, or provider absent from the installed catalog. Supply a lowercase Provider ID, base URL, API protocol, credential, and at least one model.

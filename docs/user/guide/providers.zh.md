@@ -18,6 +18,46 @@
 
 使用原生认证的提供方需要各自的原生凭据。Bedrock、Vertex、Azure 和 Codex 分别使用 AWS 凭据与区域、ADC 项目、`api-version` 和 OAuth；只填写 API 密钥字段无法完成配置。
 
+## 使用本地 OpenAI 兼容服务器
+
+将官方可选 bundle 安装到随附 profile，然后启动该 profile。第一个命令初始化 `headless`；未安装 bundle 时所有 profile 保持不变。
+
+```sh
+dsh --profile headless --help
+dsh plugin --profile headless add @deepseek-ai/dsh-local-openai
+export LOCAL_OPENAI_API_KEY=not-needed
+dsh --profile headless "Say hello."
+```
+
+在最后一个命令之前启动 OpenAI 兼容服务器。例如，使用 [vLLM](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) 时，安装模型并运行 `vllm serve Qwen/Qwen3-8B --api-key not-needed`；它监听 bundle 默认的 `http://127.0.0.1:8000/v1`。对于不检查 Bearer 认证的服务器，`LOCAL_OPENAI_API_KEY=not-needed` 是非秘密占位符；服务器要求认证时改用真实 key。
+
+Bundle 提供命名的 `local-openai` provider、`api: openai-completions`、一个模型，以及指向该路由的 `agent-default-model` 选择。在 profile 的 `cordis.patch.yml` 中更改 URL 或模型；patch 会替换整个 provider 配置，因此保留 credential reference、API 和 models：
+
+```yaml
+- id: llm-pi-ai
+  config:
+    providers:
+      local-openai:
+        displayName: Local OpenAI-compatible server
+        apiKeyEnv: LOCAL_OPENAI_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:8000/v1
+        models:
+          - id: your-local-model
+
+- id: agent-default-model
+  config:
+    provider: local-openai
+    model: your-local-model
+```
+
+本地服务器不收取托管模型费用，但并非没有成本：先下载模型，硬件和电力承担计算。`web_search` 仍属于 base bundle，且仍会发出需要 `DEEPSEEK_API_KEY` 的独立 DeepSeek 请求。本地专用 profile 可用以下 profile patch 禁用两个 web 工具：
+
+```yaml
+- id: tool-web
+  disabled: true
+```
+
 ## 添加自定义提供方
 
 对于公司网关、自建服务器或已安装目录中不存在的提供方，选择**添加自定义提供方**。提供小写 Provider ID、基础 URL、API 协议、凭据和至少一个模型。
