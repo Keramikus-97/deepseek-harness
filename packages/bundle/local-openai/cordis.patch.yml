@@ -1,0 +1,22 @@
+# Opt-in patch over dsh-base. This route intentionally has a distinct provider
+# id, so installing it never changes the default DeepSeek Cloud composition.
+# Override this complete row in the profile patch to select the local server's
+# address or one of its model ids.
+- id: llm-pi-ai
+  config:
+    providers:
+      local-openai:
+        displayName: Local OpenAI-compatible server
+        # pi-ai sends a Bearer value for this protocol even when the local
+        # server ignores authentication. Set LOCAL_OPENAI_API_KEY=not-needed.
+        apiKeyEnv: LOCAL_OPENAI_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:8000/v1
+        models:
+          - id: Qwen/Qwen3-8B
+
+# New Agents select the route above rather than dsh-base's DeepSeek model.
+- id: agent-default-model
+  config:
+    provider: local-openai
+    model: Qwen/Qwen3-8B
